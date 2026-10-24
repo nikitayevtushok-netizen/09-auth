@@ -37,23 +37,26 @@ export async function proxy(request: NextRequest) {
       refreshedCookies = cookieHeaders.map((cookieHeader) =>
         parseSetCookie(cookieHeader),
       );
-
-      for (const { name, value } of refreshedCookies) {
-        if (value) {
-          request.cookies.set(name, value);
-        }
-      }
     }
   }
 
   const requestHeaders = new Headers(request.headers);
   if (refreshedCookies.length > 0) {
+    const cookiesByName = new Map(
+      request.cookies.getAll().map(({ name, value }) => [name, value]),
+    );
+
+    for (const { name, value } of refreshedCookies) {
+      if (value) {
+        cookiesByName.set(name, value);
+      }
+    }
+
     requestHeaders.set(
       "cookie",
-      request.cookies
-        .getAll()
-        .map(({ name, value }) => `${name}=${value}`)
-        .join("; "),
+      Array.from(cookiesByName, ([name, value]) => `${name}=${value}`).join(
+        "; ",
+      ),
     );
   }
 
@@ -73,7 +76,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isPublicRoute && isAuthenticated) {
-    const response = NextResponse.redirect(new URL("/profile", request.url));
+    const response = NextResponse.redirect(new URL("/", request.url));
     withRefreshedCookies(response);
     return response;
   }
